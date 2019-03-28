@@ -1,0 +1,9 @@
+[manager]
+nctestdkrt-1
+nctestdkrt-2
+nctestdkrt-3
+
+[worker]
+nctestdkrt-1
+nctestdkrt-2
+nctestdkrt-3
