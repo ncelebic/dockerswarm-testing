@@ -1,6 +1,10 @@
-- hosts: manager
-  become: false
+---
+- hosts: nodes
   tasks:
+    - name: Change hostname
+      hostname:
+        name: "{{ inventory_hostname }}"
+    
     - name: install prerequisites
       package:
         name: "{{ item }}"
@@ -9,10 +13,10 @@
         - yum-utils
         - device-mapper-persistent-data
         - lvm2
-
+  
     - name: setup docker repo
       command: yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
-
+  
     - name: install Docker CE
       package:
         name: "{{ item }}"
@@ -21,12 +25,12 @@
         - docker-ce 
         - docker-ce-cli 
         - containerd.io
-
+  
     - name: make docker.service.d directory
       file:
         name: /etc/systemd/system/docker.service.d
         state: directory
-
+  
     - name: modify docker start up for metrics
       copy:
         dest: /etc/systemd/system/docker.service.d/docker.conf
@@ -38,17 +42,11 @@
           --dns 1.1.1.1 --dns 8.8.8.8 \
           --experimental=true \
           --metrics-addr 0.0.0.0:9323
-
+  
     - name: systemd reload
       systemd:
         daemon_reload: yes
-
-    - name: start docker
-      service:
-        name: docker
-        enabled: true
-        state: restarted
-
+  
     - name: open docker overlay network port
       firewalld:
         port: 4789/udp
@@ -56,7 +54,7 @@
         zone: public
         immediate: true
         state: enabled
-
+  
     - name: open docker nodecomm udp port
       firewalld:
         port: 7946/udp
@@ -64,7 +62,7 @@
         zone: public
         immediate: true
         state: enabled
-
+  
     - name: open docker nodecomm tcp port
       firewalld:
         port: 7946/tcp
@@ -72,7 +70,7 @@
         zone: public
         immediate: true
         state: enabled
-
+  
     - name: open docker cluster port
       firewalld:
         port: 2377/tcp
@@ -80,7 +78,7 @@
         zone: public
         immediate: true
         state: enabled
-
+  
     - name: set firewall to trust docker int
       firewalld:
         zone: trusted
@@ -88,3 +86,14 @@
         permanent: true
         immediate: true
         state: enabled
+  
+    - name: restart firewall
+      service:
+        name: firewalld
+        state: restarted
+  
+    - name: start docker
+      service:
+        name: docker
+        enabled: true
+        state: restarted

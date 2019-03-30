@@ -1,4 +1,4 @@
-- hosts: manager
+- hosts: nodes
   tasks:
     - name: leave swarm
       command: docker swarm leave --force

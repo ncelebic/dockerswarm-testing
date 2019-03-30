@@ -1,0 +1,2 @@
+[master]
+testdkr-master ansible_host=192.168.88.191 ansible_user=root

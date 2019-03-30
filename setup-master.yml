@@ -1,0 +1,19 @@
+- hosts: master
+  tasks:
+    - name: Disable SELinux
+      selinux:
+        policy: targeted
+        state: permissive
+  
+    - name: Update Packages
+      yum:
+        name: '*'
+        state: latest
+
+    - name: Install QEMU Tools
+      package:
+        name: qemu-guest-agent
+        state: present
+
+    - name: Reboot
+      reboot:

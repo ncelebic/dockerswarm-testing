@@ -3,7 +3,7 @@
 # into two groups:
 #   - swarm_manager_operational (swarm is running and active)
 #   - swarm_manager_bootstrap (host needs to be joined to the cluster)
-- hosts: manager
+- hosts: nodes
   become: true
   tasks:
     - name: determine swarm status
@@ -31,7 +31,7 @@
 # into two groups:
 #   - swarm_worker_operational (host is joined to the swarm cluster)
 #   - swarm_worker_bootstrap (host needs to be joined to the cluster)
-- hosts: worker
+- hosts: nodes
   become: true
   tasks:
     - name: determine swarm status
@@ -64,7 +64,8 @@
     - name: initialize swarm cluster
       shell: >
         docker swarm init
-        --advertise-addr={{ swarm_iface | default('eth0') }}:2377
+        --advertise-addr={{ ansible_default_ipv4.address }}:2377
+        #--advertise-addr={{ swarm_iface | default('eth0') }}:2377
       when: "'swarm_manager_operational' not in groups"
       register: bootstrap_first_node
 

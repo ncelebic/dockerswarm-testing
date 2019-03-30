@@ -1,0 +1,40 @@
+- hosts: proxmox
+  connection: local
+  vars_files:
+    - creds.yml
+
+  tasks:
+    - name: Make VMs
+      proxmox_kvm:
+        api_user: "{{ pve_user }}"
+        api_password: "{{ pve_password }}"
+        api_host: "{{ pve_host }}"
+        name: "{{ item }}"
+        clone: testdkr-master
+        storage: local-lvm
+        format: qcow2
+        node: "{{ pve_node }}"
+        timeout: 300
+        state: present
+      loop:
+        - testdkr-1
+        - testdkr-2
+        - testdkr-3
+      register: vmbuild
+
+    - name: Pause to let the last VM come up
+      pause:
+        seconds: 10
+      when: vmbuild.changed
+
+    - name: Start VMs
+      proxmox_kvm:
+        api_user: "{{ pve_user }}"
+        api_password: "{{ pve_password }}"
+        api_host: "{{ pve_host }}"
+        name: "{{ item }}"
+        state: started
+      loop:
+        - testdkr-1
+        - testdkr-2
+        - testdkr-3

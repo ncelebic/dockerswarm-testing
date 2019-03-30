@@ -1,0 +1,5 @@
+---
+pve_user: user@pve
+pve_password: proxmox_password
+pve_host: 192.168.55.111
+pve_node: proxmox_node_name
