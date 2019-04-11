@@ -1,0 +1,167 @@
+---
+- hosts: nodes
+  tasks:
+    - name: Change hostname
+      hostname:
+        name: "{{ inventory_hostname }}"
+    
+    - name: install prerequisites
+      package:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - yum-utils
+        - device-mapper-persistent-data
+        - lvm2
+        - nfs-utils
+        - bash-completion
+  
+    - name: check for docker repo
+      stat:
+        path: /etc/yum.repos.d/docker-ce.repo
+      register: dockerrepo
+
+    - name: setup docker repo
+      command: yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+      when: dockerrepo.stat.exists != true
+  
+    - name: install Docker CE
+      package:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - docker-ce 
+        - docker-ce-cli 
+        - containerd.io
+      notify:
+        - start docker
+  
+    - name: make docker.service.d directory
+      file:
+        name: /etc/systemd/system/docker.service.d
+        state: directory
+  
+    - name: modify docker start up for metrics
+      copy:
+        dest: /etc/systemd/system/docker.service.d/docker.conf
+        content: |
+          [Service]
+          ExecStart=
+          ExecStart=/usr/bin/dockerd -H fd:// \
+          --storage-driver=overlay2 \
+          --dns 1.1.1.1 --dns 8.8.8.8 \
+          --experimental=true \
+          --metrics-addr 0.0.0.0:9323
+      notify:
+        - restart firewalld
+        - restart docker
+        - systemd reload
+  
+    - name: open docker overlay network port
+      firewalld:
+        port: 4789/udp
+        permanent: true
+        zone: public
+        immediate: true
+        state: enabled
+      notify:
+        - restart firewalld
+  
+    - name: open docker nodecomm udp port
+      firewalld:
+        port: 7946/udp
+        permanent: true
+        zone: public
+        immediate: true
+        state: enabled
+      notify:
+        - restart firewalld
+  
+    - name: open docker nodecomm tcp port
+      firewalld:
+        port: 7946/tcp
+        permanent: true
+        zone: public
+        immediate: true
+        state: enabled
+      notify:
+        - restart firewalld
+  
+    - name: open docker cluster port
+      firewalld:
+        port: 2377/tcp
+        permanent: true
+        zone: public
+        immediate: true
+        state: enabled
+      notify:
+        - restart firewalld
+  
+    - name: set firewall to trust docker int
+      firewalld:
+        zone: trusted
+        interface: docker0
+        permanent: true
+        immediate: true
+        state: enabled
+      notify:
+        - restart firewalld
+  
+    - name: install docker NFS plugin
+      get_url:
+        url: https://github.com/ContainX/docker-volume-netshare/releases/download/v0.36/docker-volume-netshare_0.36_linux_amd64-bin
+        dest: /usr/local/bin/docker-volume-netshare
+        mode: 0770
+      notify:
+        - restart docker
+
+    - name: install systemd unit file for docker NFS plugin
+      copy:
+        dest: /etc/systemd/system/docker-volume-netshare.service
+        src: files/docker-volume-netshare.service
+        owner: root
+        group: root
+        mode: 0644
+      notify:
+        - systemd reload
+        - restart docker nfs plugin
+
+    - name: install base sysconfig file for docker NFS plugin
+      copy:
+        dest: /etc/sysconfig/docker-volume-netshare
+        src: files/docker-volume-netshare.sysconfig
+        owner: root
+        group: root
+        mode: 0660
+        force: no
+      notify:
+        - restart docker nfs plugin
+
+  handlers:
+    - name: systemd reload
+      systemd:
+        daemon_reload: yes
+    
+    - name: start docker
+      service:
+        name: docker
+        enabled: true
+        state: started
+    
+    - name: restart docker
+      service:
+        name: docker
+        enabled: true
+        state: restarted
+
+    - name: restart docker nfs plugin
+      service:
+        name: docker-volume-netshare
+        enabled: true
+        state: restarted
+  
+    - name: restart firewalld
+      service:
+        name: firewalld
+        state: restarted
+ 
